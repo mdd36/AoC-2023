@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	file, err := os.Open("01")
+	file, err := os.Open("input")
 
 	if err != nil {
 		panic(err)
@@ -17,27 +17,27 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 
-	fmt.Print(numeric_or_spelled(scanner))
+	fmt.Print(numericOrSpelled(scanner))
 }
 
 // Part 1 - Must be a numeric character
-func numeric_only(scanner *bufio.Scanner) int {
+func numericOnly(scanner *bufio.Scanner) int {
 	total := 0
 	for scanner.Scan() {
 		first := 0
 		second := 0
-		last_seen := ' '
+		lastSeen := ' '
 		line := scanner.Text()
 
 		for _, c := range line {
 			if unicode.IsDigit(c) {
-				if last_seen == ' ' {
+				if lastSeen == ' ' {
 					first = int(c) - int('0')
 				}
-				last_seen = c
+				lastSeen = c
 			}
 		}
-		second = int(last_seen) - int('0')
+		second = int(lastSeen) - int('0')
 		total += 10*first + second
 		fmt.Println(10*first + second)
 	}
@@ -46,7 +46,7 @@ func numeric_only(scanner *bufio.Scanner) int {
 }
 
 // Part 2 - Could be a numeric character OR a spelled-out number
-func numeric_or_spelled(scanner *bufio.Scanner) int {
+func numericOrSpelled(scanner *bufio.Scanner) int {
 	prefix_trie := new(Trie)
 	insert(prefix_trie, 0, "one", 1)
 	insert(prefix_trie, 0, "two", 2)
@@ -62,25 +62,25 @@ func numeric_or_spelled(scanner *bufio.Scanner) int {
 	for scanner.Scan() {
 		first := -1
 		second := -1
-		last_seen := -1
+		lastSeen := -1
 		line := scanner.Text()
 
 		for i, c := range line {
 			if unicode.IsDigit(c) {
-				last_seen = int(c) - int('0')
+				lastSeen = int(c) - int('0')
 			} else {
-				spelled_value := match(prefix_trie, i, line)
-				if spelled_value > 0 {
-					last_seen = spelled_value
+				spelledValue := match(prefix_trie, i, line)
+				if spelledValue > 0 {
+					lastSeen = spelledValue
 				}
 			}
 
-			if last_seen >= 0 && first < 0 {
-				first = last_seen
+			if lastSeen >= 0 && first < 0 {
+				first = lastSeen
 			}
 		}
 
-		second = last_seen
+		second = lastSeen
 		total += 10*first + second
 		fmt.Println(10*first + second)
 	}
@@ -104,11 +104,11 @@ func insert(trie *Trie, index int, word string, value int) {
 		return
 	}
 
-	char_at := string(word[index])
-	child, ok := trie.children[char_at]
+	charAt := string(word[index])
+	child, ok := trie.children[charAt]
 	if !ok {
 		child = new(Trie)
-		trie.children[char_at] = child
+		trie.children[charAt] = child
 	}
 
 	insert(child, index+1, word, value)
@@ -123,8 +123,8 @@ func match(trie *Trie, index int, text string) int {
 		return -1
 	}
 
-	char_at := string(text[index])
-	child, ok := trie.children[char_at]
+	charAt := string(text[index])
+	child, ok := trie.children[charAt]
 
 	if ok {
 		return match(child, index+1, text)
