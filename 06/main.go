@@ -10,11 +10,7 @@ import (
 )
 
 func main() {
-	file, err := os.Open("input")
-
-	if err != nil {
-		panic(err)
-	}
+	file := must(os.Open("input"))
 
 	scanner := bufio.NewScanner(file)
 	races := readInput(scanner)
@@ -54,9 +50,10 @@ func part2(races []Race) int {
 func ways(race Race) int {
 	// Simple quadratic. We can find the zeros of t(T-t)-d=0,
 	// where t is the time we hold the button, T is the maximum
-	// race time, and d is the best distance. Round the lower root
-	// up, the upper root down, and find the distance between those
-	// integers
+	// race time, and d is the best distance.
+	// Add one to the lower root and subtract one from the upper root
+	// to handle cases where the zeros are integers (where we'd tie, not
+	// beat the distance), then floor/ciel them to the nearest int.
 	T, d := (float64)(race.time), (float64)(race.dist)
 	lZero := math.Floor(((T - math.Sqrt(math.Pow(T, 2)-4*d)) / 2) + 1)
 	rZero := math.Ceil(((T + math.Sqrt(math.Pow(T, 2)-4*d)) / 2) - 1)
