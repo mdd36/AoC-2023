@@ -9,9 +9,6 @@ import (
 	"strings"
 )
 
-const FORWARDS int = 1
-const BACKWARDS int = -1
-
 type SearchExtractor[T any] func(T) (int, int)
 type KeyExtractor[T any] func(T) int
 
@@ -23,10 +20,6 @@ type Interval struct {
 
 func sourceRangeExtractor(interval Interval) (int, int) {
 	return interval.sourceStart, interval.sourceStart + interval.length
-}
-
-func destRangeExtractor(interval Interval) (int, int) {
-	return interval.destStart, interval.destStart + interval.length
 }
 
 type Almanac struct {
@@ -52,7 +45,6 @@ func main() {
 
 	sortAlmanac(almanac, func(interval Interval) int { return interval.sourceStart })
 	fmt.Println("Closest plot to plant is", closestSeedPlot(almanac))
-	sortAlmanac(almanac, func(interval Interval) int { return interval.destStart })
 	fmt.Println("Closest plot for seed ranges is", closestSeedPlotWithRange(almanac))
 }
 
@@ -75,29 +67,32 @@ func closestSeedPlotWithRange(almanac Almanac) int {
 		seedRanges = append(seedRanges, [2]int{start, start + length})
 	}
 
-	quicksort(seedRanges, 0, len(seedRanges)-1, func(i [2]int) int { return i[0] })
+	outputChannel := make(chan int)
 
-	foundSeeds := make([]int, 0)
-	for location := 0; location <= 51399229; location++ {
-		humidity := getNext(location, almanac.humidityToLocation, BACKWARDS)
-		temperature := getNext(humidity, almanac.temperatureToHumidity, BACKWARDS)
-		light := getNext(temperature, almanac.lightToTemperature, BACKWARDS)
-		water := getNext(light, almanac.waterToLight, BACKWARDS)
-		fertilizer := getNext(water, almanac.fertilizerToWater, BACKWARDS)
-		soil := getNext(fertilizer, almanac.soilToFertilizer, BACKWARDS)
-		seed := getNext(soil, almanac.seedToSoil, BACKWARDS)
-		foundSeeds = append(foundSeeds, seed)
-		if haveSeed(seed, seedRanges) {
-			return location
-		}
+	for _, seedRange := range seedRanges {
+		go processRange(seedRange, almanac, outputChannel)
 	}
 
-	return -1
+	lowest := math.MaxInt
+	for i := 0; i < len(seedRanges); i++ {
+		select {
+		case l := <-outputChannel:
+			lowest = min(lowest, l)
+		}
+	}
+	return lowest
 }
 
 // ------- Helpers -------
-func haveSeed(seed int, seedRanges [][2]int) bool {
-	return nil != binarySearch(seedRanges, seed, func(i [2]int) (int, int) { return i[0], i[1] })
+func processRange(seedRange [2]int, almanac Almanac, channel chan int) {
+	lowest := math.MaxInt
+
+	for seed := seedRange[0]; seed <= seedRange[1]; seed++ {
+		x := findPlotFor(seed, almanac)
+		lowest = min(lowest, x)
+	}
+
+	channel <- lowest
 }
 
 func sortAlmanac(almanac Almanac, extractor KeyExtractor[Interval]) {
@@ -111,30 +106,22 @@ func sortAlmanac(almanac Almanac, extractor KeyExtractor[Interval]) {
 }
 
 func findPlotFor(seed int, almanac Almanac) int {
-	soil := getNext(seed, almanac.seedToSoil, FORWARDS)
-	fertilizer := getNext(soil, almanac.soilToFertilizer, FORWARDS)
-	water := getNext(fertilizer, almanac.fertilizerToWater, FORWARDS)
-	light := getNext(water, almanac.waterToLight, FORWARDS)
-	temperature := getNext(light, almanac.lightToTemperature, FORWARDS)
-	humidity := getNext(temperature, almanac.temperatureToHumidity, FORWARDS)
-	return getNext(humidity, almanac.humidityToLocation, FORWARDS)
+	soil := getNext(seed, almanac.seedToSoil)
+	fertilizer := getNext(soil, almanac.soilToFertilizer)
+	water := getNext(fertilizer, almanac.fertilizerToWater)
+	light := getNext(water, almanac.waterToLight)
+	temperature := getNext(light, almanac.lightToTemperature)
+	humidity := getNext(temperature, almanac.temperatureToHumidity)
+	return getNext(humidity, almanac.humidityToLocation)
 }
 
-func getNext(target int, intervals []Interval, direction int) int {
+func getNext(target int, intervals []Interval) int {
 	extractor := sourceRangeExtractor
-	if direction == BACKWARDS {
-		extractor = destRangeExtractor
-	}
 	interval := binarySearch(intervals, target, extractor)
 
 	if interval != nil {
-		if direction == FORWARDS {
-			offset := target - interval.sourceStart
-			return interval.destStart + offset
-		} else {
-			offset := target - interval.destStart
-			return interval.sourceStart + offset
-		}
+		offset := target - interval.sourceStart
+		return interval.destStart + offset
 	} else {
 		return target
 	}
@@ -241,11 +228,11 @@ func binarySearch[T any](rangeArr []T, target int, extractor SearchExtractor[T])
 		midRange := rangeArr[mid]
 		start, end := extractor(midRange)
 
-		if start <= target && target <= end {
+		if start <= target && target < end {
 			return &midRange
 		}
 
-		if end < target {
+		if end <= target {
 			l = mid + 1
 		} else {
 			r = mid - 1
