@@ -70,3 +70,11 @@ func (self *Set[T]) Remove(val T) bool {
 	*self = s
 	return exists
 }
+
+func PopSlice[T any](arr *[]T) T {
+	a := *arr
+	l := len(a)
+	top := a[l-1]
+	*arr = a[:l-1]
+	return top
+}
