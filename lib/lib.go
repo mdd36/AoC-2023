@@ -8,6 +8,18 @@ func Must[T any](val T, err any) T {
 	return val
 }
 
+func Clamp(n, min, max int) int {
+	if n > max {
+		return max
+	}
+
+	if n < min {
+		return min
+	}
+
+	return n
+}
+
 type Queue[T any] []T
 
 func NewQueue[T any]() Queue[T] {

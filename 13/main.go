@@ -4,6 +4,7 @@ import (
 	"AoC_2023/lib"
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -94,51 +95,80 @@ func part2(landscapes []Landscape) int {
 			colPalindromes[j] = palindromeLengths(landscape, j, Column)
 		}
 
+		// Find the max palindrome lengths between each row & column
 		maxRowLengths, maxColLengths := make([]int, m), make([]int, n)
 		for i := 0; i < n; i++ {
 			for j := 0; j < m; j++ {
 				maxRowLengths[j] = max(maxRowLengths[j], rowPalindromes[i][2*j])
 				maxColLengths[i] = max(maxColLengths[i], colPalindromes[j][2*i])
+			}
+		}
 
-				if i > 0 {
-					rowPalindromes[0][2*j+1] += (rowPalindromes[i][2*j] * (1 << i))
-				} else {
-					rowPalindromes[0][2*j+1] = rowPalindromes[0][2*j]
-				}
+		// Encode the rows or columns that aren't the same length as the max. We're using bit
+		// indexes to store when a row/col is too short, so I'm assuming that each puzzle has
+		// 32 or fewer rows and columns. Maybe making a chess engine has made me too eager to
+		// use bit flags ¯\_(ツ)_/¯
+		undersizedRows, undersizedCols := make([]int, m), make([]int, n)
+		for i := 0; i < n; i++ {
+			for j := 0; j < m; j++ {
+				undersizedRows[j] += (1 << i) * lib.Clamp(maxRowLengths[j]-rowPalindromes[i][2*j], 0, 1)
+				undersizedCols[i] += (1 << j) * lib.Clamp(maxColLengths[i]-colPalindromes[j][2*i], 0, 1)
+			}
+		}
 
-				if j > 0 {
-					colPalindromes[0][2*i+1] += (colPalindromes[j][2*i] * (1 << j))
-				} else {
-					colPalindromes[0][2*i+1] = colPalindromes[0][2*i]
+		for j := 0; j < m; j++ {
+			if isPowerOfTwo(undersizedRows[j]) {
+				// Exactly one column is too short, otherwise either zero (all equal)
+				// or 2+ bits (more than one was too short) would be set
+				shortRow := int(math.Log2(float64(undersizedRows[j])))
+				radius := rowPalindromes[shortRow][2*j] / 2
+				// Technically, we can flip either j+radius or j-radius since we're testing for symmetry
+				flip(&landscape, shortRow, j+radius)
+				// Try again after the flip
+				newLength := palindromeLengths(landscape, shortRow, Row)[2*j]
+				flip(&landscape, shortRow, j+radius)
+				if newLength == maxRowLengths[j] {
+					// The flip fixed our problem!
+					radius := newLength / 2
+					if radius == j || radius+j == m {
+						summary += j
+						break
+					}
 				}
 			}
 		}
 
-		// TODO
-		// Broad idea:
-		// We've encoded row/col index information into the summed palindrome lengths, so if
-		// one was off we can try flipping the character at (palindromeCenter + palindromeRadius + 1),
-		// and re-calculating the palindromes for that row/col. If it's at least as long as the others,
-		// then we've found our smudge! We know they must be equal length since the palindrome *must*
-		// touch an edge of the puzzle and hence is clamped, so the fixed row/col can't have a longer
-		// palindrome than the others and the others must have the same length.
-
-		// Just a little sick of this puzzle, so I'm parking it for now.
+		for i := 0; i < n; i++ {
+			if isPowerOfTwo(undersizedCols[i]) {
+				shortCol := int(math.Log2(float64(undersizedCols[i])))
+				radius := colPalindromes[shortCol][2*i] / 2
+				flip(&landscape, i+radius, shortCol)
+				newLength := palindromeLengths(landscape, shortCol, Column)[2*i]
+				flip(&landscape, i+radius, shortCol)
+				if newLength == maxColLengths[i] {
+					radius = newLength / 2
+					if radius == i || i+radius == n {
+						summary += 100 * i
+						break
+					}
+				}
+			}
+		}
 	}
 
 	return summary
 }
 
 func isPowerOfTwo(n int) bool {
-	return n&(n-1) == 0
+	return n > 0 && n&(n-1) == 0
 }
 
 func flip(landscape *Landscape, r, c int) {
 	l := *landscape
-	if l[r][c] == '#' {
-		l[r][c] = '.'
+	if l[r][c] == Rock {
+		l[r][c] = Ash
 	} else {
-		l[r][c] = '#'
+		l[r][c] = Rock
 	}
 }
 
