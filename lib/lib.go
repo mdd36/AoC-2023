@@ -78,3 +78,10 @@ func PopSlice[T any](arr *[]T) T {
 	*arr = a[:l-1]
 	return top
 }
+
+func Fill[T any](arr *[]T, val T) {
+	a := *arr
+	for i := 0; i < len(a); i++ {
+		a[i] = val
+	}
+}
