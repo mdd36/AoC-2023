@@ -38,6 +38,71 @@ func (self *Queue[T]) Pop() T {
 	return top
 }
 
+type Heap[T any] struct {
+	elements  []T
+	extractor func(T) int
+}
+
+func NewHeap[T any](extractor func(T) int) Heap[T] {
+	return Heap[T]{
+		elements:  make([]T, 0),
+		extractor: extractor,
+	}
+}
+
+func (self Heap[T]) Len() int {
+	return len(self.elements)
+}
+
+func (self *Heap[T]) Push(val T) {
+	h := *&self.elements
+	h = append(h, val)
+	newValIndex := len(h) - 1
+	parentIndex := (newValIndex - 1) / 2
+	for parentIndex >= 0 &&
+		self.extractor(h[newValIndex]) < self.extractor(h[parentIndex]) {
+		h[newValIndex] = h[parentIndex]
+		h[parentIndex] = val
+		newValIndex = parentIndex
+		parentIndex = (parentIndex - 1) / 2
+	}
+	*&self.elements = h
+}
+
+func (self *Heap[T]) Pop() T {
+	h := *&self.elements
+	l := len(h)
+	top := h[0]
+	h[0] = h[l-1]
+	sinkIndex := 0
+	for sinkIndex < l-1 {
+		left := sinkIndex*2 + 1
+		right := sinkIndex*2 + 2
+
+		if right < l-1 &&
+			self.extractor(h[right]) < self.extractor(h[sinkIndex]) &&
+			self.extractor(h[right]) < self.extractor(h[left]) {
+			h[sinkIndex] = h[right]
+			h[right] = h[l-1]
+			sinkIndex = right
+			continue
+		}
+
+		if left < l-1 &&
+			self.extractor(h[left]) < self.extractor(h[sinkIndex]) {
+			h[sinkIndex] = h[left]
+			h[left] = h[l-1]
+			sinkIndex = left
+			continue
+		}
+
+		break
+	}
+
+	*&self.elements = h[0 : l-1]
+	return top
+}
+
 type Stack[T any] []T
 
 func NewStack[T any]() Stack[T] {
